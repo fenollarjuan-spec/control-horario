@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Control Horario</title>
+<link rel="manifest" href="data:application/manifest+json,{%22name%22:%22Control%20Horario%22,%22short_name%22:%22Fichaje%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%23F4F5F7%22,%22theme_color%22:%22%232C3E50%22}">
+<style>
+:root{
+  --azul:#2C3E50;
+  --azul-claro:#34495E;
+  --verde:#1E8E5A;
+  --verde-claro:#E6F4EC;
+  --rojo:#C0392B;
+  --rojo-claro:#FCEAE8;
+  --ambar:#B7791F;
+  --ambar-claro:#FBF1DE;
+  --fondo:#F4F5F7;
+  --tarjeta:#FFFFFF;
+  --borde:#E1E4E8;
+  --texto:#1F2933;
+  --texto-suave:#6B7785;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--fondo);
+  color:var(--texto);
+  min-height:100vh;
+  padding-bottom:40px;
+}
+.app{max-width:480px;margin:0 auto;min-height:100vh;background:var(--fondo);}
+header.top{
+  background:var(--azul);
+  color:#fff;
+  padding:18px 20px 16px;
+  position:sticky;top:0;z-index:10;
+}
+header.top h1{font-size:18px;font-weight:600;letter-spacing:.2px;}
+header.top .sub{font-size:12.5px;color:#C9D3DC;margin-top:2px;}
+.screen{padding:18px;display:none;}
+.screen.active{display:block;}
+
+.card{
+  background:var(--tarjeta);
+  border:1px solid var(--borde);
+  border-radius:14px;
+  padding:18px;
+  margin-bottom:14px;
+}
+.card h2{font-size:14px;color:var(--texto-suave);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;font-weight:600;}
+
+.clock{
+  text-align:center;
+  padding:18px 0 6px;
+}
+.clock .hora{font-size:42px;font-weight:700;letter-spacing:1px;color:var(--azul);}
+.clock .fecha{font-size:14px;color:var(--texto-suave);margin-top:4px;text-transform:capitalize;}
+
+.estado-badge{
+  display:inline-block;
+  padding:5px 12px;
+  border-radius:20px;
+  font-size:12.5px;
+  font-weight:600;
+  margin-top:10px;
+}
+.estado-fuera{background:var(--rojo-claro);color:var(--rojo);}
+.estado-dentro{background:var(--verde-claro);color:var(--verde);}
+.estado-pausa{background:var(--ambar-claro);color:var(--ambar);}
+
+.btn{
+  width:100%;
+  padding:16px;
+  border:none;
+  border-radius:12px;
+  font-size:16px;
+  font-weight:600;
+  cursor:pointer;
+  margin-top:10px;
+  transition:opacity .15s, transform .1s;
+}
+.btn:active{transform:scale(.98);}
+.btn-entrada{background:var(--verde);color:#fff;}
+.btn-salida{background:var(--rojo);color:#fff;}
+.btn-pausa{background:var(--ambar);color:#fff;}
+.btn-secundario{background:#fff;color:var(--azul);border:1.5px solid var(--borde);}
+.btn-azul{background:var(--azul);color:#fff;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:13px;font-weight:600;color:var(--texto-suave);margin-bottom:6px;}
+.field input, .field select, .field textarea{
+  width:100%;
+  padding:12px 14px;
+  border:1.5px solid var(--borde);
+  border-radius:10px;
+  font-size:15px;
+  font-family:inherit;
+  background:#fff;
+  color:var(--texto);
+}
+.field input:focus, .field select:focus, .field textarea:focus{
+  outline:none;border-color:var(--azul);
+}
+.field textarea{resize:vertical;min-height:70px;}
+
+.hist-item{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  padding:12px 0;
+  border-bottom:1px solid var(--borde);
+  font-size:14px;
+}
+.hist-item:last-child{border-bottom:none;}
+.hist-fecha{font-weight:600;color:var(--azul);}
+.hist-detalle{color:var(--texto-suave);font-size:13px;margin-top:3px;line-height:1.5;}
+.tag-corregido{
+  display:inline-block;
+  background:var(--ambar-claro);
+  color:var(--ambar);
+  font-size:11px;
+  font-weight:700;
+  padding:2px 8px;
+  border-radius:8px;
+  margin-left:6px;
+  vertical-align:middle;
+}
+.horas-dia{font-weight:700;color:var(--texto);white-space:nowrap;margin-left:10px;}
+
+nav.tabs{
+  display:flex;
+  background:#fff;
+  border-top:1px solid var(--borde);
+  position:fixed;
+  bottom:0;left:0;right:0;
+  max-width:480px;
+  margin:0 auto;
+  z-index:10;
+}
+nav.tabs button{
+  flex:1;
+  background:none;
+  border:none;
+  padding:12px 4px 10px;
+  font-size:11.5px;
+  color:var(--texto-suave);
+  font-weight:600;
+  cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+nav.tabs button.active{color:var(--azul);}
+nav.tabs svg{width:22px;height:22px;}
+
+.empty{
+  text-align:center;
+  color:var(--texto-suave);
+  font-size:14px;
+  padding:30px 10px;
+}
+
+.modal-overlay{
+  position:fixed;inset:0;
+  background:rgba(15,23,33,.55);
+  display:none;
+  align-items:flex-end;
+  z-index:100;
+}
+.modal-overlay.active{display:flex;}
+.modal{
+  background:#fff;
+  width:100%;
+  max-width:480px;
+  margin:0 auto;
+  border-radius:18px 18px 0 0;
+  padding:22px;
+  max-height:88vh;
+  overflow-y:auto;
+}
+.modal h3{font-size:17px;margin-bottom:14px;color:var(--azul);}
+.modal-actions{display:flex;gap:10px;margin-top:6px;}
+.modal-actions .btn{margin-top:0;}
+
+#firmaCanvas{
+  border:1.5px dashed var(--borde);
+  border-radius:10px;
+  width:100%;
+  height:140px;
+  touch-action:none;
+  background:#fafbfc;
+}
+.firma-hint{font-size:12px;color:var(--texto-suave);margin-top:6px;text-align:center;}
+
+.banner-info{
+  background:var(--azul);
+  color:#fff;
+  border-radius:12px;
+  padding:14px 16px;
+  font-size:13px;
+  line-height:1.5;
+  margin-bottom:14px;
+}
+.banner-info b{display:block;font-size:13.5px;margin-bottom:3px;}
+
+select.periodo{margin-bottom:12px;}
+
+.welcome{padding:40px 22px;}
+.welcome .card{text-align:center;padding:30px 22px;}
+.welcome svg{width:48px;height:48px;color:var(--azul);margin-bottom:14px;}
+.welcome h2{font-size:19px;margin-bottom:8px;color:var(--azul);}
+.welcome p{font-size:14px;color:var(--texto-suave);margin-bottom:22px;line-height:1.5;}
+
+.toast{
+  position:fixed;
+  bottom:90px;left:50%;
+  transform:translateX(-50%);
+  background:var(--texto);
+  color:#fff;
+  padding:11px 20px;
+  border-radius:30px;
+  font-size:13.5px;
+  z-index:200;
+  opacity:0;
+  transition:opacity .25s;
+  pointer-events:none;
+  max-width:88%;
+  text-align:center;
+}
+.toast.show{opacity:1;}
+
+.resumen-row{display:flex;justify-content:space-between;font-size:14px;padding:6px 0;}
+.resumen-row b{color:var(--azul);}
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- PANTALLA DE BIENVENIDA / CONFIGURACIÓN -->
+  <div class="screen active welcome" id="screen-welcome">
+    <div class="card">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <h2>Control Horario</h2>
+      <p>Registro de jornada laboral conforme al Real Decreto-ley 8/2019. Configura tu nombre una sola vez; quedará guardado en este dispositivo.</p>
+      <div class="field" style="text-align:left;">
+        <label>Nombre y apellidos</label>
+        <input type="text" id="inputNombre" placeholder="Ej. María López García">
+      </div>
+      <div class="field" style="text-align:left;">
+        <label>DNI / NIE (opcional, recomendado para el informe)</label>
+        <input type="text" id="inputDni" placeholder="Ej. 12345678A">
+      </div>
+      <div class="field" style="text-align:left;">
+        <label>Nombre de la empresa</label>
+        <input type="text" id="inputEmpresa" placeholder="Ej. Comercial Paiporta S.L.">
+      </div>
+      <button class="btn btn-azul" id="btnGuardarPerfil">Empezar</button>
+    </div>
+  </div>
+
+  <!-- PANTALLA PRINCIPAL: FICHAR -->
+  <div class="screen" id="screen-fichar">
+    <header class="top">
+      <h1 id="cabeceraNombre">Control Horario</h1>
+      <div class="sub" id="cabeceraEmpresa">—</div>
+    </header>
+    <div class="screen-body" style="padding:18px;">
+      <div class="card clock">
+        <div class="hora" id="relojHora">--:--</div>
+        <div class="fecha" id="relojFecha">—</div>
+        <div id="estadoBadge" class="estado-badge estado-fuera">Fuera de jornada</div>
+      </div>
+
+      <div class="card">
+        <h2>Fichar</h2>
+        <button class="btn btn-entrada" id="btnEntrada">Marcar entrada</button>
+        <button class="btn btn-pausa" id="btnPausaInicio" style="display:none;">Iniciar pausa comida</button>
+        <button class="btn btn-pausa" id="btnPausaFin" style="display:none;">Finalizar pausa comida</button>
+        <button class="btn btn-salida" id="btnSalida" style="display:none;">Marcar salida</button>
+      </div>
+
+      <div class="card">
+        <h2>Hoy</h2>
+        <div id="hoyResumen" class="empty">Aún no has fichado hoy.</div>
+      </div>
+
+      <div class="card">
+        <h2>¿Olvidaste fichar?</h2>
+        <button class="btn btn-secundario" id="btnCorreccion">Añadir fichaje manual</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANTALLA HISTORIAL -->
+  <div class="screen" id="screen-historial">
+    <header class="top">
+      <h1>Historial</h1>
+      <div class="sub">Registro de jornadas</div>
+    </header>
+    <div style="padding:18px;">
+      <select class="periodo" id="selectMes"></select>
+      <div class="card" id="resumenMes"></div>
+      <div class="card">
+        <h2>Detalle por día</h2>
+        <div id="listaHistorial"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANTALLA INFORME -->
+  <div class="screen" id="screen-informe">
+    <header class="top">
+      <h1>Informe</h1>
+      <div class="sub">Generar PDF del registro horario</div>
+    </header>
+    <div style="padding:18px;">
+      <div class="banner-info">
+        <b>Registro horario legal</b>
+        Genera un PDF con el detalle de jornada del periodo seleccionado, conforme al artículo 34.9 del Estatuto de los Trabajadores. La empresa debe conservarlo 4 años.
+      </div>
+      <div class="card">
+        <h2>Periodo</h2>
+        <div class="field">
+          <label>Mes</label>
+          <select id="selectMesInforme"></select>
+        </div>
+        <div id="resumenInforme" style="margin-bottom:6px;"></div>
+        <button class="btn btn-azul" id="btnGenerarPdf">Generar PDF y firmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANTALLA AJUSTES -->
+  <div class="screen" id="screen-ajustes">
+    <header class="top">
+      <h1>Ajustes</h1>
+      <div class="sub">Datos del dispositivo</div>
+    </header>
+    <div style="padding:18px;">
+      <div class="card">
+        <h2>Mis datos</h2>
+        <div class="field">
+          <label>Nombre y apellidos</label>
+          <input type="text" id="ajusteNombre">
+        </div>
+        <div class="field">
+          <label>DNI / NIE</label>
+          <input type="text" id="ajusteDni">
+        </div>
+        <div class="field">
+          <label>Empresa</label>
+          <input type="text" id="ajusteEmpresa">
+        </div>
+        <button class="btn btn-azul" id="btnGuardarAjustes">Guardar cambios</button>
+      </div>
+      <div class="card">
+        <h2>Datos almacenados</h2>
+        <p style="font-size:13px;color:var(--texto-suave);line-height:1.6;margin-bottom:12px;">
+          Todos los fichajes se guardan únicamente en este dispositivo (almacenamiento local del navegador). No se envían a ningún servidor.
+        </p>
+        <button class="btn btn-secundario" id="btnExportarJson">Exportar copia de seguridad (.json)</button>
+      </div>
+    </div>
+  </div>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="fichar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      Fichar
+    </button>
+    <button class="tab-btn" data-tab="historial">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 5h16M4 12h16M4 19h10"/></svg>
+      Historial
+    </button>
+    <button class="tab-btn" data-tab="informe">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/></svg>
+      Informe
+    </button>
+    <button class="tab-btn" data-tab="ajustes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Ajustes
+    </button>
+  </nav>
+</div>
+
+<!-- MODAL: CORRECCIÓN MANUAL -->
+<div class="modal-overlay" id="modalCorreccion">
+  <div class="modal">
+    <h3>Añadir fichaje manual</h3>
+    <div class="field">
+      <label>Fecha</label>
+      <input type="date" id="corrFecha">
+    </div>
+    <div class="field">
+      <label>Tipo de marcaje olvidado</label>
+      <select id="corrTipo">
+        <option value="entrada">Entrada</option>
+        <option value="salida">Salida</option>
+        <option value="pausa_inicio">Inicio de pausa comida</option>
+        <option value="pausa_fin">Fin de pausa comida</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Hora correcta</label>
+      <input type="time" id="corrHora">
+    </div>
+    <div class="field">
+      <label>Motivo (obligatorio)</label>
+      <textarea id="corrMotivo" placeholder="Ej. Olvidé fichar la entrada al llegar, empecé a trabajar a las 9:02h."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secundario" id="btnCancelarCorreccion">Cancelar</button>
+      <button class="btn btn-azul" id="btnGuardarCorreccion">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: FIRMA -->
+<div class="modal-overlay" id="modalFirma">
+  <div class="modal">
+    <h3>Firma para el informe</h3>
+    <p style="font-size:13px;color:var(--texto-suave);margin-bottom:10px;">Dibuja tu firma con el dedo dentro del recuadro.</p>
+    <canvas id="firmaCanvas"></canvas>
+    <div class="firma-hint">Esta firma quedará incluida en el PDF del periodo seleccionado.</div>
+    <div class="modal-actions">
+      <button class="btn btn-secundario" id="btnLimpiarFirma">Borrar</button>
+      <button class="btn btn-azul" id="btnConfirmarFirma">Firmar y generar PDF</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+(function(){
+"use strict";
+
+/* ===================== UTILIDADES ===================== */
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2,'0');
+const hoyISO = () => {
+  const d = new Date();
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+};
+const formatoFechaLarga = iso => {
+  const [y,m,d] = iso.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  return dt.toLocaleDateString('es-ES', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+};
+const formatoFechaCorta = iso => {
+  const [y,m,d] = iso.split('-').map(Number);
+  return pad(d)+'/'+pad(m)+'/'+y;
+};
+const horaActual = () => {
+  const d = new Date();
+  return pad(d.getHours())+':'+pad(d.getMinutes());
+};
+const minutosDesdeHora = hhmm => {
+  const [h,m] = hhmm.split(':').map(Number);
+  return h*60+m;
+};
+const minutosAHoras = mins => {
+  if (mins < 0) mins = 0;
+  const h = Math.floor(mins/60);
+  const m = mins % 60;
+  return h+'h '+pad(m)+'min';
+};
+function toast(msg){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+/* ===================== ALMACENAMIENTO ===================== */
+const LS_PERFIL = 'ch_perfil';
+const LS_FICHAJES = 'ch_fichajes'; // array de {fecha, tipo, hora, manual, motivo}
+
+function getPerfil(){
+  try { return JSON.parse(localStorage.getItem(LS_PERFIL)) || null; }
+  catch(e){ return null; }
+}
+function setPerfil(p){ localStorage.setItem(LS_PERFIL, JSON.stringify(p)); }
+
+function getFichajes(){
+  try { return JSON.parse(localStorage.getItem(LS_FICHAJES)) || []; }
+  catch(e){ return []; }
+}
+function setFichajes(arr){ localStorage.setItem(LS_FICHAJES, JSON.stringify(arr)); }
+
+function addFichaje(tipo, hora, manual, motivo, fecha){
+  const arr = getFichajes();
+  arr.push({
+    fecha: fecha || hoyISO(),
+    tipo: tipo, // entrada | salida | pausa_inicio | pausa_fin
+    hora: hora,
+    manual: !!manual,
+    motivo: motivo || null,
+    ts: Date.now()
+  });
+  arr.sort((a,b)=> (a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  setFichajes(arr);
+}
+
+function fichajesDelDia(fecha){
+  return getFichajes().filter(f => f.fecha === fecha)
+    .sort((a,b)=> a.hora.localeCompare(b.hora));
+}
+
+/* Calcula minutos trabajados de un día a partir de sus fichajes */
+function calcularMinutosDia(fichajesDia){
+  let entradas = fichajesDia.filter(f=>f.tipo==='entrada');
+  let salidas = fichajesDia.filter(f=>f.tipo==='salida');
+  let pausaIni = fichajesDia.filter(f=>f.tipo==='pausa_inicio');
+  let pausaFin = fichajesDia.filter(f=>f.tipo==='pausa_fin');
+
+  if (entradas.length===0 || salidas.length===0) return null;
+
+  const entrada = minutosDesdeHora(entradas[0].hora);
+  const salida = minutosDesdeHora(salidas[salidas.length-1].hora);
+  let bruto = salida - entrada;
+
+  let pausaMin = 0;
+  for (let i=0; i<Math.min(pausaIni.length, pausaFin.length); i++){
+    pausaMin += Math.max(0, minutosDesdeHora(pausaFin[i].hora) - minutosDesdeHora(pausaIni[i].hora));
+  }
+  return Math.max(0, bruto - pausaMin);
+}
+
+function estadoActual(){
+  const dia = fichajesDelDia(hoyISO());
+  if (dia.length === 0) return 'fuera';
+  const ultimo = dia[dia.length-1];
+  if (ultimo.tipo === 'entrada') return 'dentro';
+  if (ultimo.tipo === 'pausa_inicio') return 'pausa';
+  if (ultimo.tipo === 'pausa_fin') return 'dentro';
+  if (ultimo.tipo === 'salida') return 'fuera';
+  return 'fuera';
+}
+
+/* ===================== RELOJ ===================== */
+function tickReloj(){
+  const d = new Date();
+  $('relojHora').textContent = pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
+  $('relojFecha').textContent = d.toLocaleDateString('es-ES', {weekday:'long', day:'numeric', month:'long'});
+}
+setInterval(tickReloj, 1000);
+
+/* ===================== PANTALLA FICHAR ===================== */
+function renderEstadoBadge(){
+  const est = estadoActual();
+  const badge = $('estadoBadge');
+  badge.className = 'estado-badge';
+  if (est === 'fuera'){ badge.classList.add('estado-fuera'); badge.textContent = 'Fuera de jornada'; }
+  if (est === 'dentro'){ badge.classList.add('estado-dentro'); badge.textContent = 'En jornada'; }
+  if (est === 'pausa'){ badge.classList.add('estado-pausa'); badge.textContent = 'En pausa de comida'; }
+
+  $('btnEntrada').style.display = (est==='fuera') ? 'block' : 'none';
+  $('btnSalida').style.display = (est==='dentro') ? 'block' : 'none';
+  $('btnPausaInicio').style.display = (est==='dentro') ? 'block' : 'none';
+  $('btnPausaFin').style.display = (est==='pausa') ? 'block' : 'none';
+}
+
+function renderHoyResumen(){
+  const dia = fichajesDelDia(hoyISO());
+  const cont = $('hoyResumen');
+  if (dia.length === 0){
+    cont.innerHTML = '<div class="empty">Aún no has fichado hoy.</div>';
+    return;
+  }
+  const etiquetas = {entrada:'Entrada', salida:'Salida', pausa_inicio:'Inicio pausa', pausa_fin:'Fin pausa'};
+  let html = '';
+  dia.forEach(f=>{
+    html += '<div class="hist-item"><div><div>'+etiquetas[f.tipo]+(f.manual?' <span class="tag-corregido">Manual</span>':'')+'</div>';
+    if (f.motivo) html += '<div class="hist-detalle">'+escapeHtml(f.motivo)+'</div>';
+    html += '</div><div class="horas-dia">'+f.hora+'</div></div>';
+  });
+  const mins = calcularMinutosDia(dia);
+  if (mins !== null){
+    html += '<div class="hist-item"><div><b>Total trabajado</b></div><div class="horas-dia">'+minutosAHoras(mins)+'</div></div>';
+  }
+  cont.innerHTML = html;
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function refrescarPantallaFichar(){
+  renderEstadoBadge();
+  renderHoyResumen();
+}
+
+$('btnEntrada').addEventListener('click', ()=>{
+  addFichaje('entrada', horaActual());
+  toast('Entrada registrada a las '+horaActual());
+  refrescarPantallaFichar();
+});
+$('btnSalida').addEventListener('click', ()=>{
+  addFichaje('salida', horaActual());
+  toast('Salida registrada a las '+horaActual());
+  refrescarPantallaFichar();
+});
+$('btnPausaInicio').addEventListener('click', ()=>{
+  addFichaje('pausa_inicio', horaActual());
+  toast('Pausa de comida iniciada');
+  refrescarPantallaFichar();
+});
+$('btnPausaFin').addEventListener('click', ()=>{
+  addFichaje('pausa_fin', horaActual());
+  toast('Pausa de comida finalizada');
+  refrescarPantallaFichar();
+});
+
+/* ===================== CORRECCIÓN MANUAL ===================== */
+$('btnCorreccion').addEventListener('click', ()=>{
+  $('corrFecha').value = hoyISO();
+  $('corrFecha').max = hoyISO();
+  $('corrHora').value = horaActual();
+  $('corrMotivo').value = '';
+  $('modalCorreccion').classList.add('active');
+});
+$('btnCancelarCorreccion').addEventListener('click', ()=>{
+  $('modalCorreccion').classList.remove('active');
+});
+$('btnGuardarCorreccion').addEventListener('click', ()=>{
+  const fecha = $('corrFecha').value;
+  const tipo = $('corrTipo').value;
+  const hora = $('corrHora').value;
+  const motivo = $('corrMotivo').value.trim();
+  if (!fecha || !hora){ toast('Indica fecha y hora'); return; }
+  if (!motivo){ toast('El motivo es obligatorio'); return; }
+  addFichaje(tipo, hora, true, motivo, fecha);
+  $('modalCorreccion').classList.remove('active');
+  toast('Fichaje manual guardado');
+  refrescarPantallaFichar();
+  renderHistorial();
+});
+
+/* ===================== HISTORIAL ===================== */
+function mesesDisponibles(){
+  const fichajes = getFichajes();
+  const set = new Set();
+  fichajes.forEach(f => set.add(f.fecha.slice(0,7)));
+  set.add(hoyISO().slice(0,7));
+  return Array.from(set).sort().reverse();
+}
+function nombreMes(yyyymm){
+  const [y,m] = yyyymm.split('-').map(Number);
+  const dt = new Date(y, m-1, 1);
+  return dt.toLocaleDateString('es-ES', {month:'long', year:'numeric'});
+}
+function poblarSelectMeses(select){
+  const meses = mesesDisponibles();
+  select.innerHTML = meses.map(m=>'<option value="'+m+'">'+capitaliza(nombreMes(m))+'</option>').join('');
+}
+function capitaliza(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+
+function diasDelMesConFichajes(yyyymm){
+  const fichajes = getFichajes().filter(f=>f.fecha.startsWith(yyyymm));
+  const dias = {};
+  fichajes.forEach(f=>{
+    if (!dias[f.fecha]) dias[f.fecha] = [];
+    dias[f.fecha].push(f);
+  });
+  return dias;
+}
+
+function renderHistorial(){
+  const select = $('selectMes');
+  if (select.options.length === 0) poblarSelectMeses(select);
+  const mes = select.value || select.options[0]?.value;
+  if (!mes){ $('listaHistorial').innerHTML = '<div class="empty">No hay fichajes todavía.</div>'; return; }
+
+  const dias = diasDelMesConFichajes(mes);
+  const fechas = Object.keys(dias).sort().reverse();
+
+  let totalMinutos = 0;
+  let diasIncompletos = 0;
+  let diasConCorreccion = 0;
+
+  let html = '';
+  if (fechas.length === 0){
+    html = '<div class="empty">No hay fichajes en este mes.</div>';
+  } else {
+    fechas.forEach(fecha=>{
+      const fd = dias[fecha].sort((a,b)=>a.hora.localeCompare(b.hora));
+      const mins = calcularMinutosDia(fd);
+      const tieneManual = fd.some(f=>f.manual);
+      if (tieneManual) diasConCorreccion++;
+      if (mins === null) diasIncompletos++; else totalMinutos += mins;
+
+      const etiquetas = {entrada:'E', salida:'S', pausa_inicio:'P.ini', pausa_fin:'P.fin'};
+      const detalle = fd.map(f => etiquetas[f.tipo]+' '+f.hora + (f.manual?'*':'')).join(' · ');
+
+      html += '<div class="hist-item"><div>';
+      html += '<div class="hist-fecha">'+formatoFechaCorta(fecha)+(tieneManual?' <span class="tag-corregido">Corregido</span>':'')+'</div>';
+      html += '<div class="hist-detalle">'+detalle+'</div>';
+      html += '</div><div class="horas-dia">'+(mins!==null?minutosAHoras(mins):'Incompleto')+'</div></div>';
+    });
+  }
+  $('listaHistorial').innerHTML = html;
+
+  $('resumenMes').innerHTML =
+    '<div class="resumen-row"><span>Total trabajado</span><b>'+minutosAHoras(totalMinutos)+'</b></div>'+
+    '<div class="resumen-row"><span>Días registrados</span><b>'+fechas.length+'</b></div>'+
+    (diasIncompletos>0 ? '<div class="resumen-row"><span>Días incompletos</span><b style="color:var(--rojo)">'+diasIncompletos+'</b></div>' : '')+
+    (diasConCorreccion>0 ? '<div class="resumen-row"><span>Días con corrección manual</span><b style="color:var(--ambar)">'+diasConCorreccion+'</b></div>' : '');
+}
+
+$('selectMes').addEventListener('change', renderHistorial);
+
+/* ===================== INFORME / PDF ===================== */
+let firmaDataUrl = null;
+let canvasCtx = null;
+let dibujando = false;
+
+function initFirmaCanvas(){
+  const canvas = $('firmaCanvas');
+  const ratio = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * ratio;
+  canvas.height = rect.height * ratio;
+  canvasCtx = canvas.getContext('2d');
+  canvasCtx.scale(ratio, ratio);
+  canvasCtx.lineWidth = 2.2;
+  canvasCtx.lineCap = 'round';
+  canvasCtx.strokeStyle = '#1F2933';
+
+  function pos(e){
+    const r = canvas.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX - r.left, y: t.clientY - r.top };
+  }
+  function start(e){ e.preventDefault(); dibujando = true; const p = pos(e); canvasCtx.beginPath(); canvasCtx.moveTo(p.x, p.y); }
+  function move(e){ if (!dibujando) return; e.preventDefault(); const p = pos(e); canvasCtx.lineTo(p.x, p.y); canvasCtx.stroke(); }
+  function end(){ dibujando = false; }
+
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', end);
+  canvas.addEventListener('touchstart', start, {passive:false});
+  canvas.addEventListener('touchmove', move, {passive:false});
+  canvas.addEventListener('touchend', end);
+}
+
+$('btnLimpiarFirma').addEventListener('click', ()=>{
+  const canvas = $('firmaCanvas');
+  canvasCtx.clearRect(0,0,canvas.width,canvas.height);
+});
+
+function poblarInformeMes(){
+  poblarSelectMeses($('selectMesInforme'));
+  renderResumenInforme();
+}
+$('selectMesInforme').addEventListener('change', renderResumenInforme);
+
+function renderResumenInforme(){
+  const mes = $('selectMesInforme').value;
+  if (!mes) return;
+  const dias = diasDelMesConFichajes(mes);
+  const fechas = Object.keys(dias);
+  let total = 0;
+  fechas.forEach(f=>{
+    const m = calcularMinutosDia(dias[f]);
+    if (m!==null) total += m;
+  });
+  $('resumenInforme').innerHTML =
+    '<div class="resumen-row"><span>Días con fichaje</span><b>'+fechas.length+'</b></div>'+
+    '<div class="resumen-row"><span>Total del mes</span><b>'+minutosAHoras(total)+'</b></div>';
+}
+
+$('btnGenerarPdf').addEventListener('click', ()=>{
+  const mes = $('selectMesInforme').value;
+  const dias = diasDelMesConFichajes(mes);
+  if (Object.keys(dias).length === 0){
+    toast('No hay fichajes en este mes');
+    return;
+  }
+  $('modalFirma').classList.add('active');
+  setTimeout(initFirmaCanvas, 50);
+});
+
+$('btnConfirmarFirma').addEventListener('click', ()=>{
+  const canvas = $('firmaCanvas');
+  // comprobar si el canvas está vacío
+  const blank = document.createElement('canvas');
+  blank.width = canvas.width; blank.height = canvas.height;
+  if (canvas.toDataURL() === blank.toDataURL()){
+    toast('Dibuja tu firma antes de continuar');
+    return;
+  }
+  firmaDataUrl = canvas.toDataURL('image/png');
+  $('modalFirma').classList.remove('active');
+  generarPdfInforme();
+});
+
+function generarPdfInforme(){
+  const perfil = getPerfil();
+  const mes = $('selectMesInforme').value;
+  const dias = diasDelMesConFichajes(mes);
+  const fechas = Object.keys(dias).sort();
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 42;
+  let y = 50;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(30,40,50);
+  doc.text('Registro horario de jornada laboral', margin, y);
+  y += 18;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.setTextColor(110,120,130);
+  doc.text('Conforme al artículo 34.9 del Estatuto de los Trabajadores (Real Decreto-ley 8/2019)', margin, y);
+  y += 26;
+
+  doc.setDrawColor(225,228,232);
+  doc.line(margin, y, pageW - margin, y);
+  y += 22;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10.5);
+  doc.setTextColor(30,40,50);
+  doc.text('Empresa: ', margin, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(perfil.empresa || '—', margin + 58, y);
+  y += 16;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Trabajador/a: ', margin, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(perfil.nombre || '—', margin + 76, y);
+  y += 16;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('DNI/NIE: ', margin, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(perfil.dni || '—', margin + 54, y);
+  y += 16;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Periodo: ', margin, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(capitaliza(nombreMes(mes)), margin + 52, y);
+  y += 26;
+
+  // tabla
+  const colX = {
+    fecha: margin,
+    entrada: margin + 90,
+    pausaIni: margin + 160,
+    pausaFin: margin + 230,
+    salida: margin + 300,
+    total: margin + 365,
+    obs: margin + 430
+  };
+
+  function header(){
+    doc.setFillColor(44,62,80);
+    doc.rect(margin, y - 12, pageW - margin*2, 20, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.3);
+    doc.text('FECHA', colX.fecha + 4, y + 2);
+    doc.text('ENTRADA', colX.entrada, y + 2);
+    doc.text('PAUSA INI.', colX.pausaIni, y + 2);
+    doc.text('PAUSA FIN', colX.pausaFin, y + 2);
+    doc.text('SALIDA', colX.salida, y + 2);
+    doc.text('TOTAL', colX.total, y + 2);
+    doc.text('OBS.', colX.obs, y + 2);
+    y += 16;
+  }
+  header();
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  let totalGeneralMin = 0;
+
+  fechas.forEach(fecha=>{
+    if (y > 760){
+      doc.addPage();
+      y = 50;
+      header();
+    }
+    const fd = dias[fecha].sort((a,b)=>a.hora.localeCompare(b.hora));
+    const entradas = fd.filter(f=>f.tipo==='entrada');
+    const salidas = fd.filter(f=>f.tipo==='salida');
+    const pIni = fd.filter(f=>f.tipo==='pausa_inicio');
+    const pFin = fd.filter(f=>f.tipo==='pausa_fin');
+    const mins = calcularMinutosDia(fd);
+    if (mins !== null) totalGeneralMin += mins;
+    const tieneManual = fd.some(f=>f.manual);
+    const motivos = fd.filter(f=>f.motivo).map(f=>f.motivo);
+
+    doc.setTextColor(30,40,50);
+    doc.text(formatoFechaCorta(fecha), colX.fecha + 4, y);
+    doc.text(entradas[0] ? entradas[0].hora + (entradas[0].manual?'*':'') : '—', colX.entrada, y);
+    doc.text(pIni[0] ? pIni[0].hora + (pIni[0].manual?'*':'') : '—', colX.pausaIni, y);
+    doc.text(pFin[0] ? pFin[0].hora + (pFin[0].manual?'*':'') : '—', colX.pausaFin, y);
+    doc.text(salidas[0] ? salidas[salidas.length-1].hora + (salidas[salidas.length-1].manual?'*':'') : '—', colX.salida, y);
+    doc.text(mins!==null ? minutosAHoras(mins) : 'Incompleto', colX.total, y);
+    doc.text(tieneManual ? 'Sí' : '—', colX.obs, y);
+    y += 14;
+
+    if (motivos.length){
+      doc.setFontSize(7.3);
+      doc.setTextColor(140,90,30);
+      motivos.forEach(mo=>{
+        const lineas = doc.splitTextToSize('* '+mo, pageW - margin*2 - 8);
+        lineas.forEach(l=>{
+          if (y > 770){ doc.addPage(); y = 50; header(); }
+          doc.text(l, colX.fecha + 4, y);
+          y += 10;
+        });
+      });
+      doc.setFontSize(8);
+      doc.setTextColor(30,40,50);
+      y += 2;
+    }
+    doc.setDrawColor(238,240,242);
+    doc.line(margin, y - 8, pageW - margin, y - 8);
+  });
+
+  y += 10;
+  if (y > 740){ doc.addPage(); y = 50; }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10.5);
+  doc.setTextColor(30,40,50);
+  doc.text('Total de horas del periodo: ' + minutosAHoras(totalGeneralMin), margin, y);
+  y += 30;
+
+  // firma
+  if (y > 680){ doc.addPage(); y = 60; }
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(80,90,100);
+  doc.text('Firma del trabajador/a:', margin, y);
+  y += 8;
+  if (firmaDataUrl){
+    doc.addImage(firmaDataUrl, 'PNG', margin, y, 160, 60);
+  }
+  doc.setDrawColor(200,205,210);
+  doc.line(margin, y + 65, margin + 200, y + 65);
+  doc.setFontSize(7.5);
+  doc.setTextColor(140,150,160);
+  doc.text('Generado el ' + new Date().toLocaleDateString('es-ES') + ' a las ' + horaActual() + 'h', margin, y + 80);
+  doc.text('* Fichaje introducido manualmente con justificación (ver detalle en obs.)', margin, y + 92);
+
+  const nombreArchivo = 'registro-horario_' + (perfil.nombre||'trabajador').replace(/\s+/g,'-').toLowerCase() + '_' + mes + '.pdf';
+  doc.save(nombreArchivo);
+  toast('PDF generado correctamente');
+}
+
+/* ===================== AJUSTES ===================== */
+function cargarAjustes(){
+  const p = getPerfil();
+  if (!p) return;
+  $('ajusteNombre').value = p.nombre || '';
+  $('ajusteDni').value = p.dni || '';
+  $('ajusteEmpresa').value = p.empresa || '';
+}
+$('btnGuardarAjustes').addEventListener('click', ()=>{
+  const nombre = $('ajusteNombre').value.trim();
+  if (!nombre){ toast('El nombre es obligatorio'); return; }
+  setPerfil({
+    nombre: nombre,
+    dni: $('ajusteDni').value.trim(),
+    empresa: $('ajusteEmpresa').value.trim()
+  });
+  aplicarCabecera();
+  toast('Datos guardados');
+});
+$('btnExportarJson').addEventListener('click', ()=>{
+  const data = { perfil: getPerfil(), fichajes: getFichajes() };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'copia-seguridad-control-horario.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Copia de seguridad descargada');
+});
+
+/* ===================== NAVEGACIÓN ===================== */
+function aplicarCabecera(){
+  const p = getPerfil();
+  if (!p) return;
+  $('cabeceraNombre').textContent = p.nombre || 'Control Horario';
+  $('cabeceraEmpresa').textContent = p.empresa || '';
+}
+
+function irAPantalla(tab){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  $('screen-'+tab).classList.add('active');
+  document.querySelector('.tab-btn[data-tab="'+tab+'"]').classList.add('active');
+  if (tab==='historial') renderHistorial();
+  if (tab==='informe') poblarInformeMes();
+  if (tab==='ajustes') cargarAjustes();
+  if (tab==='fichar') refrescarPantallaFichar();
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=> irAPantalla(btn.dataset.tab));
+});
+
+/* ===================== ARRANQUE ===================== */
+$('btnGuardarPerfil').addEventListener('click', ()=>{
+  const nombre = $('inputNombre').value.trim();
+  if (!nombre){ toast('Indica tu nombre'); return; }
+  setPerfil({
+    nombre: nombre,
+    dni: $('inputDni').value.trim(),
+    empresa: $('inputEmpresa').value.trim()
+  });
+  iniciarApp();
+});
+
+function iniciarApp(){
+  $('screen-welcome').classList.remove('active');
+  document.querySelectorAll('nav.tabs').forEach(n=> n.style.display = 'flex');
+  aplicarCabecera();
+  irAPantalla('fichar');
+  tickReloj();
+}
+
+(function arranque(){
+  const p = getPerfil();
+  document.querySelectorAll('nav.tabs').forEach(n=> n.style.display = p ? 'flex' : 'none');
+  if (p){
+    iniciarApp();
+  } else {
+    $('screen-welcome').classList.add('active');
+  }
+})();
+
+})();
+</script>
+</body>
+</html>
