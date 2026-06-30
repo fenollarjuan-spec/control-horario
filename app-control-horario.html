@@ -940,6 +940,33 @@ function generarPdfInforme(){
   const nombreArchivo = 'registro-horario_' + (perfil.nombre||'trabajador').replace(/\s+/g,'-').toLowerCase() + '_' + mes + '.pdf';
   doc.save(nombreArchivo);
   toast('PDF generado correctamente');
+  subirCopiaSeguridadPdf(doc, perfil, mes);
+}
+
+/* Sube una copia del PDF al servidor (Cloudflare Worker) como respaldo,
+   para que la empresa pueda recuperarlo aunque la trabajadora borre
+   este móvil. Si falla (sin conexión, servidor caído, etc.) no afecta
+   en nada al uso normal de la app: el PDF ya se ha descargado igualmente
+   en el paso anterior. */
+const CH_BACKEND_URL = 'https://biblioteca-apps-backend.fenollarjuan.workers.dev/api/control-horario-upload';
+
+async function subirCopiaSeguridadPdf(doc, perfil, mes){
+  try {
+    const pdfBase64 = doc.output('datauristring').split(',')[1];
+    await fetch(CH_BACKEND_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        empresa: perfil.empresa || '',
+        trabajador: perfil.nombre || '',
+        periodo: mes,
+        pdfBase64: pdfBase64
+      })
+    });
+  } catch (e) {
+    // Silencioso a propósito: el PDF local ya se ha generado y descargado
+    // correctamente; la copia de seguridad es un extra, no algo bloqueante.
+  }
 }
 
 /* ===================== AJUSTES ===================== */
