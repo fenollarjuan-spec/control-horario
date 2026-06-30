@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel Control Horario · Juan Fenollar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --zafiro-profundo: #1E3A5F;
+  --oro-mineral:     #B45309;
+  --oro-claro:       #D97706;
+  --zafiro-medio:    #2D5480;
+  --pizarra:         #475569;
+  --blanco-mineral:  #F8FAFC;
+  --tinta:           #0F172A;
+  --hielo:           #E2E8F0;
+  --card-bg:         #FFFFFF;
+}
+body { font-family: "Inter", sans-serif; background: var(--blanco-mineral); color: var(--tinta); min-height: 100vh; }
+.site-header { background: var(--zafiro-profundo); padding: 20px 40px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.site-header-tagline { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; color: rgba(248,250,252,0.55); text-transform: uppercase; }
+.site-header-title { font-family: "Playfair Display", serif; font-size: 19px; font-weight: 700; color: var(--blanco-mineral); }
+.main { max-width: 760px; margin: 0 auto; padding: 36px 20px 60px; }
+
+.login-panel { background: var(--card-bg); border: 1px solid var(--hielo); border-radius: 12px; padding: 28px 24px; max-width: 380px; margin: 60px auto; text-align: center; }
+.login-panel h1 { font-family: "Playfair Display", serif; font-size: 19px; color: var(--zafiro-profundo); margin-bottom: 8px; }
+.login-panel p { font-size: 13px; color: var(--pizarra); margin-bottom: 18px; line-height: 1.5; }
+.login-panel input { width: 100%; font-family: "Inter", sans-serif; font-size: 14px; padding: 10px 12px; border: 1px solid var(--hielo); border-radius: 6px; margin-bottom: 12px; }
+.login-panel button { width: 100%; font-family: "Inter", sans-serif; font-size: 13.5px; font-weight: 600; padding: 11px; border-radius: 6px; border: none; background: var(--oro-mineral); color: #fff; cursor: pointer; }
+.login-panel button:hover { background: var(--oro-claro); }
+.login-error { font-size: 12.5px; color: #C0392B; margin-top: 10px; }
+
+.panel-title { font-family: "Playfair Display", serif; font-size: 22px; font-weight: 700; color: var(--zafiro-profundo); margin-bottom: 4px; }
+.panel-sub { font-size: 13px; color: var(--pizarra); margin-bottom: 24px; }
+
+.filtro-row { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.filtro-row input { font-family: "Inter", sans-serif; font-size: 13.5px; padding: 8px 12px; border: 1px solid var(--hielo); border-radius: 6px; flex: 1 1 200px; }
+
+.informe-card { background: var(--card-bg); border: 1px solid var(--hielo); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.informe-info strong { font-size: 14px; color: var(--zafiro-profundo); display: block; }
+.informe-info span { font-size: 12.5px; color: var(--pizarra); }
+.informe-meta { font-size: 11.5px; color: #94A3B8; margin-top: 2px; }
+.btn-descargar { font-family: "Inter", sans-serif; font-size: 12.5px; font-weight: 600; padding: 8px 16px; border-radius: 6px; border: none; background: var(--zafiro-profundo); color: #fff; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.btn-descargar:hover { background: var(--zafiro-medio); }
+
+.empty-state { text-align: center; color: var(--pizarra); font-size: 13.5px; padding: 40px 20px; }
+.loading-state { text-align: center; color: var(--pizarra); font-size: 13.5px; padding: 30px; }
+
+.logout-link { font-size: 12px; color: var(--pizarra); text-decoration: underline; cursor: pointer; background: none; border: none; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <span class="site-header-title">Juan Fenollar</span>
+  <span class="site-header-tagline">Panel Control Horario</span>
+</header>
+
+<main class="main">
+
+  <div class="login-panel" id="loginPanel">
+    <h1>Acceso al panel</h1>
+    <p>Introduce la clave de acceso para ver los informes de jornada subidos por las trabajadoras.</p>
+    <input type="password" id="passphraseInput" placeholder="Clave de acceso" autocomplete="off">
+    <button id="btnLogin">Entrar</button>
+    <div class="login-error" id="loginError" style="display:none;"></div>
+  </div>
+
+  <div id="panelContent" style="display:none;">
+    <div class="panel-title">Informes de jornada</div>
+    <div class="panel-sub">Listado de PDFs subidos automáticamente desde el móvil de cada trabajadora. <button class="logout-link" id="btnLogout">Cerrar sesión</button></div>
+
+    <div class="filtro-row">
+      <input type="text" id="filtroTexto" placeholder="Filtrar por trabajador o empresa...">
+    </div>
+
+    <div id="listaInformes"></div>
+  </div>
+
+</main>
+
+<script>
+const BACKEND_BASE = 'https://biblioteca-apps-backend.fenollarjuan.workers.dev';
+const LIST_URL = BACKEND_BASE + '/api/control-horario-admin-list';
+const DOWNLOAD_URL = BACKEND_BASE + '/api/control-horario-admin-download';
+
+let passphraseActual = null;
+let itemsCargados = [];
+
+function $(id){ return document.getElementById(id); }
+
+function formatoFecha(iso){
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
+      ' ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  } catch(e){ return iso; }
+}
+
+function nombreMesPeriodo(periodo){
+  try {
+    const [y, m] = periodo.split('-').map(Number);
+    const d = new Date(y, m - 1, 1);
+    const s = d.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  } catch(e){ return periodo; }
+}
+
+async function intentarLogin(){
+  const pass = $('passphraseInput').value.trim();
+  if (!pass){ return; }
+  $('loginError').style.display = 'none';
+  $('btnLogin').disabled = true;
+  $('btnLogin').textContent = 'Comprobando...';
+  try {
+    const res = await fetch(LIST_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passphrase: pass })
+    });
+    const data = await res.json();
+    if (!res.ok){
+      $('loginError').textContent = data.error || 'Clave incorrecta.';
+      $('loginError').style.display = 'block';
+      $('btnLogin').disabled = false;
+      $('btnLogin').textContent = 'Entrar';
+      return;
+    }
+    passphraseActual = pass;
+    itemsCargados = data.items || [];
+    sessionStorage.setItem('ch_admin_pass', pass);
+    mostrarPanel();
+  } catch(e){
+    $('loginError').textContent = 'No se ha podido conectar con el servidor.';
+    $('loginError').style.display = 'block';
+    $('btnLogin').disabled = false;
+    $('btnLogin').textContent = 'Entrar';
+  }
+}
+
+function mostrarPanel(){
+  $('loginPanel').style.display = 'none';
+  $('panelContent').style.display = 'block';
+  renderLista();
+}
+
+function renderLista(){
+  const filtro = ($('filtroTexto').value || '').toLowerCase().trim();
+  const cont = $('listaInformes');
+
+  const filtrados = itemsCargados.filter(it => {
+    if (!filtro) return true;
+    return (it.trabajador||'').toLowerCase().includes(filtro) || (it.empresa||'').toLowerCase().includes(filtro);
+  });
+
+  if (filtrados.length === 0){
+    cont.innerHTML = '<div class="empty-state">No hay informes que coincidan.</div>';
+    return;
+  }
+
+  cont.innerHTML = filtrados.map(it => {
+    const url = DOWNLOAD_URL + '?id=' + encodeURIComponent(it.id) + '&passphrase=' + encodeURIComponent(passphraseActual);
+    return '<div class="informe-card">' +
+      '<div class="informe-info">' +
+        '<strong>' + escapeHtml(it.trabajador) + '</strong>' +
+        '<span>' + escapeHtml(it.empresa || 'Sin empresa indicada') + ' · ' + escapeHtml(nombreMesPeriodo(it.periodo)) + '</span>' +
+        '<div class="informe-meta">Subido el ' + formatoFecha(it.subidoEl) + '</div>' +
+      '</div>' +
+      '<a class="btn-descargar" href="' + url + '" target="_blank">Descargar PDF</a>' +
+    '</div>';
+  }).join('');
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+$('btnLogin').addEventListener('click', intentarLogin);
+$('passphraseInput').addEventListener('keydown', e => { if (e.key === 'Enter') intentarLogin(); });
+$('filtroTexto').addEventListener('input', renderLista);
+$('btnLogout').addEventListener('click', () => {
+  sessionStorage.removeItem('ch_admin_pass');
+  location.reload();
+});
+
+// Recordar sesión dentro de la pestaña (no persiste entre sesiones del navegador)
+(function intentarSesionGuardada(){
+  const saved = sessionStorage.getItem('ch_admin_pass');
+  if (saved){
+    $('passphraseInput').value = saved;
+    intentarLogin();
+  }
+})();
+</script>
+
+</body>
+</html>
