@@ -327,7 +327,7 @@ select.periodo{margin-bottom:12px;}
           <select id="selectMesInforme"></select>
         </div>
         <div id="resumenInforme" style="margin-bottom:6px;"></div>
-        <button class="btn btn-azul" id="btnGenerarPdf">Generar PDF y firmar</button>
+        <button class="btn btn-azul" id="btnGenerarPdf">Generar PDF</button>
       </div>
     </div>
   </div>
@@ -383,7 +383,6 @@ select.periodo{margin-bottom:12px;}
       Ajustes
     </button>
   </nav>
-</div>
 
 <!-- MODAL: CORRECCIÓN MANUAL -->
 <div class="modal-overlay" id="modalCorreccion">
@@ -417,18 +416,21 @@ select.periodo{margin-bottom:12px;}
   </div>
 </div>
 
-<!-- MODAL: FIRMA -->
+<!-- MODAL: VALIDACIÓN -->
 <div class="modal-overlay" id="modalFirma">
   <div class="modal">
-    <h3>Firma para el informe</h3>
-    <p style="font-size:13px;color:var(--texto-suave);margin-bottom:10px;">Dibuja tu firma con el dedo dentro del recuadro.</p>
-    <canvas id="firmaCanvas"></canvas>
-    <div class="firma-hint">Esta firma quedará incluida en el PDF del periodo seleccionado.</div>
+    <h3>Validar informe</h3>
+    <p style="font-size:13.5px;color:var(--texto-suave);margin-bottom:16px;line-height:1.5;">Antes de generar el PDF, confirma que los datos de jornada de este periodo son correctos.</p>
+    <label style="display:flex;align-items:flex-start;gap:10px;font-size:14px;color:var(--texto);cursor:pointer;margin-bottom:18px;line-height:1.5;">
+      <input type="checkbox" id="checkValidacion" style="margin-top:3px;width:18px;height:18px;flex-shrink:0;cursor:pointer;">
+      <span>Declaro que los fichajes y correcciones manuales de este periodo reflejan correctamente mi jornada laboral.</span>
+    </label>
     <div class="modal-actions">
-      <button class="btn btn-secundario" id="btnLimpiarFirma">Borrar</button>
-      <button class="btn btn-azul" id="btnConfirmarFirma">Firmar y generar PDF</button>
+      <button class="btn btn-secundario" id="btnCancelarFirma">Cancelar</button>
+      <button class="btn btn-azul" id="btnConfirmarFirma">Generar PDF</button>
     </div>
   </div>
+</div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -716,72 +718,8 @@ function renderHistorial(){
 $('selectMes').addEventListener('change', renderHistorial);
 
 /* ===================== INFORME / PDF ===================== */
-let firmaDataUrl = null;
-let canvasCtx = null;
-let dibujando = false;
-let firmaCanvasInicializado = false;
-
-function initFirmaCanvas(){
-  const canvas = $('firmaCanvas');
-  const ratio = window.devicePixelRatio || 1;
-  const rect = canvas.getBoundingClientRect();
-
-  if (rect.width === 0 || rect.height === 0){
-    requestAnimationFrame(initFirmaCanvas);
-    return;
-  }
-
-  canvas.width = rect.width * ratio;
-  canvas.height = rect.height * ratio;
-  canvasCtx = canvas.getContext('2d');
-  canvasCtx.scale(ratio, ratio);
-  canvasCtx.lineWidth = 2.4;
-  canvasCtx.lineCap = 'round';
-  canvasCtx.lineJoin = 'round';
-  canvasCtx.strokeStyle = '#1F2933';
-
-  if (firmaCanvasInicializado) return;
-  firmaCanvasInicializado = true;
-
-  function pos(e){
-    const r = canvas.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
-  }
-  function start(e){
-    e.preventDefault();
-    dibujando = true;
-    canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
-    const p = pos(e);
-    canvasCtx.beginPath();
-    canvasCtx.moveTo(p.x, p.y);
-  }
-  function move(e){
-    if (!dibujando) return;
-    e.preventDefault();
-    const p = pos(e);
-    canvasCtx.lineTo(p.x, p.y);
-    canvasCtx.stroke();
-  }
-  function end(e){
-    if (!dibujando) return;
-    dibujando = false;
-    if (e && canvas.releasePointerCapture && e.pointerId !== undefined){
-      try { canvas.releasePointerCapture(e.pointerId); } catch(err){}
-    }
-  }
-
-  canvas.addEventListener('pointerdown', start);
-  canvas.addEventListener('pointermove', move);
-  canvas.addEventListener('pointerup', end);
-  canvas.addEventListener('pointercancel', end);
-  canvas.addEventListener('pointerleave', end);
-}
-
-$('btnLimpiarFirma').addEventListener('click', ()=>{
-  const canvas = $('firmaCanvas');
-  if (!canvasCtx) return;
-  canvasCtx.clearRect(0,0,canvas.width,canvas.height);
-});
+let validacionConfirmada = false;
+let validacionFechaHora = null;
 
 function poblarInformeMes(){
   poblarSelectMeses($('selectMesInforme'));
@@ -811,20 +749,21 @@ $('btnGenerarPdf').addEventListener('click', ()=>{
     toast('No hay fichajes en este mes');
     return;
   }
+  $('checkValidacion').checked = false;
   $('modalFirma').classList.add('active');
-  setTimeout(initFirmaCanvas, 50);
+});
+
+$('btnCancelarFirma').addEventListener('click', ()=>{
+  $('modalFirma').classList.remove('active');
 });
 
 $('btnConfirmarFirma').addEventListener('click', ()=>{
-  const canvas = $('firmaCanvas');
-  // comprobar si el canvas está vacío
-  const blank = document.createElement('canvas');
-  blank.width = canvas.width; blank.height = canvas.height;
-  if (canvas.toDataURL() === blank.toDataURL()){
-    toast('Dibuja tu firma antes de continuar');
+  if (!$('checkValidacion').checked){
+    toast('Marca la casilla para confirmar los datos');
     return;
   }
-  firmaDataUrl = canvas.toDataURL('image/png');
+  validacionConfirmada = true;
+  validacionFechaHora = new Date();
   $('modalFirma').classList.remove('active');
   generarPdfInforme();
 });
@@ -967,22 +906,36 @@ function generarPdfInforme(){
   doc.text('Total de horas del periodo: ' + minutosAHoras(totalGeneralMin), margin, y);
   y += 30;
 
-  // firma
+  // validación
   if (y > 680){ doc.addPage(); y = 60; }
+  doc.setDrawColor(225,228,232);
+  doc.setFillColor(248,249,250);
+  doc.roundedRect(margin, y, pageW - margin*2, 46, 3, 3, 'FD');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(30,40,50);
+  doc.text('☑', margin + 10, y + 18);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(80,90,100);
-  doc.text('Firma del trabajador/a:', margin, y);
-  y += 8;
-  if (firmaDataUrl){
-    doc.addImage(firmaDataUrl, 'PNG', margin, y, 160, 60);
-  }
-  doc.setDrawColor(200,205,210);
-  doc.line(margin, y + 65, margin + 200, y + 65);
+  doc.setFontSize(8.3);
+  const declaracion = 'Declaro que los fichajes y correcciones manuales de este periodo reflejan correctamente mi jornada laboral.';
+  const lineasDecl = doc.splitTextToSize(declaracion, pageW - margin*2 - 28);
+  let yDecl = y + 14;
+  lineasDecl.forEach(l=>{ doc.text(l, margin + 20, yDecl); yDecl += 10; });
+
   doc.setFontSize(7.5);
   doc.setTextColor(140,150,160);
-  doc.text('Generado el ' + new Date().toLocaleDateString('es-ES') + ' a las ' + horaActual() + 'h', margin, y + 80);
-  doc.text('* Fichaje introducido manualmente con justificación (ver detalle en obs.)', margin, y + 92);
+  const fechaValidacion = validacionFechaHora || new Date();
+  doc.text(
+    'Validado el ' + fechaValidacion.toLocaleDateString('es-ES') + ' a las ' + pad(fechaValidacion.getHours())+':'+pad(fechaValidacion.getMinutes()) + 'h · ' + (perfil.nombre || ''),
+    margin + 10, y + 40
+  );
+  y += 56;
+
+  doc.setFontSize(7.5);
+  doc.setTextColor(140,150,160);
+  doc.text('Generado el ' + new Date().toLocaleDateString('es-ES') + ' a las ' + horaActual() + 'h', margin, y);
+  doc.text('* Fichaje introducido manualmente con justificación (ver detalle en obs.)', margin, y + 12);
 
   const nombreArchivo = 'registro-horario_' + (perfil.nombre||'trabajador').replace(/\s+/g,'-').toLowerCase() + '_' + mes + '.pdf';
   doc.save(nombreArchivo);
